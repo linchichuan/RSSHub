@@ -3,20 +3,25 @@ import got from '@/utils/got';
 import { load } from 'cheerio';
 
 export const route: Route = {
-    path: '/index',
+    path: '/index/:keyword?',
     name: 'Home',
-    example: '/nikkei/index',
+    example: '/nikkei/index/cancer',
+    parameters: { 
+        keyword: '關鍵字搜索，可選參數。例如：cancer、AI、economy 等' 
+    },
     maintainers: ['zjysdhr'],
     handler,
     url: 'www.nikkei.com',
+    description: '日本經濟新聞首頁，支援關鍵字過濾',
 };
 
-async function handler() {
+async function handler(ctx) {
+    const keyword = ctx.req.param('keyword');
     const url = 'https://www.nikkei.com';
     const response = await got(url);
     const $ = load(response.data);
 
-    const list = $('a[data-rn-inview-track-value]')
+    let list = $('a[data-rn-inview-track-value]')
         .toArray()
         .map((e) => {
             e = $(e);
@@ -38,8 +43,19 @@ async function handler() {
             };
         });
 
+    // 如果有關鍵字，進行過濾
+    if (keyword) {
+        list = list.filter(item => {
+            const titleMatch = item.title && item.title.toLowerCase().includes(keyword.toLowerCase());
+            const descMatch = item.description && item.description.toLowerCase().includes(keyword.toLowerCase());
+            return titleMatch || descMatch;
+        });
+    }
+
+    const titleSuffix = keyword ? ` - ${keyword}` : '';
+
     return {
-        title: '日本経済新聞',
+        title: `日本経済新聞${titleSuffix}`,
         link: url,
         item: list,
     };
